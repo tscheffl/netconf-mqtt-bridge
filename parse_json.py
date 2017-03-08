@@ -48,25 +48,51 @@ class DummyRepository(pyang.Repository):
   }
 }'''
 
+'''
+"device":{
+	"id":
+	"name":
+	"vendor":
+	"type":
+},   
+"status": {
+	"description":,
+	"element-name":"status",
+	"type": "string",
+	"default_value": "unkown"
+},
+"rpc": {
+"set_color_green": {
+  "description": "RPC call that sets the LIFX-Led Color to green",
+  "function":"input",
+  "type": "string",
+  "mqtt-command":"green"
+},
+'''
+
 test ='''
 {
   "rpc": {
-	"set_color": {
-	  "description": "test",
-	  "input": "string"
+	"set_color_green": {
+	  "description": "RPC call that sets the LIFX-Led Color to green",
+	  "mqtt-command": "GREEN"
 	},
 	"switch_off": {
-	  "description": "Switches the LIFX-Led off"
+	  "description": "Switches the LIFX-Led off",
+	  "mqtt-command": "OFF"
 	}
   }
 }
 '''
 
 
+
 count = 0
 level_memory = 0
-	
+mqtt_commands = {} #dict of all rpc-names and the corresponding mqtt commands
+
 def parse_dict(v, module):
+	global mqtt_commands
 	print "##############"
 	huff2 = []
 	count2 = 0
@@ -83,9 +109,12 @@ def parse_dict(v, module):
 					for k3,v4 in v3.items():
 						print "###### K3:", k3,v4, count2
 						if not isinstance(v4, dict):
-							huff2.append(Statement(None, None , None, k3,v4))
-							huff2[level].substmts.append(huff2[count2])
-							count2 += 1
+							if k3 == 'mqtt-command':
+								mqtt_commands[k2] = v4 # add rpc-name : mqtt-command 
+							else:
+								huff2.append(Statement(None, None , None, k3,v4))
+								huff2[level].substmts.append(huff2[count2])
+								count2 += 1
 						else:
 							#key, value = v4.popitem()
 							#print '>>>',key, value
@@ -97,7 +126,7 @@ def parse_dict(v, module):
 								huff2.append(Statement(None, None , None, k4,v5))
 								huff2[count2-1].substmts.append(huff2[count2])
 								count2 += 1
-								
+
 
 
 
@@ -106,7 +135,7 @@ def print_dict(v, module, prefix='', level=0, huff = []):
 	#huff.append(Statement(None, None , None, 'container','mqtt-netconf-bridge'))
 	#module.substmts.append(huff[count])
 	global count, level_memory
-	
+
 	if isinstance(v, dict):
 		for k, v2 in v.items():
 			p2 = "{}['{}']".format(prefix, k)
@@ -119,22 +148,22 @@ def print_dict(v, module, prefix='', level=0, huff = []):
 			elif count is not 0 and level is 0:
 				huff[level_memory[level]].substmts.append(huff[count])
 				#level_memory[level] = count
-				
+
 			elif k is 'rpc':
 				level = 0	
 				module.substmts.append(huff[count])
-			
+
 			else:
 				print 'D:', level, repr(huff[1])
 				huff[level_memory[level-1]].substmts.append(huff[count])
 				#huff[level-1].substmts.append(huff[count])
 				level_memory[level] = count
-				
+
 			count += 1
 			#if count > level:
 			#	level = count-1
 			print_dict(v2, module, p2, level = level + 1, huff = huff)
-			
+
 	elif isinstance(v, list):
 		for i, v2 in enumerate(v):
 			p2 = "{}[{}]".format(prefix, i)
@@ -146,7 +175,7 @@ def print_dict(v, module, prefix='', level=0, huff = []):
 			huff[level_memory[level-1]].substmts.append(huff[count])
 			count += 1
 			print_dict(v2, module, p2, level = level + 1, huff = huff)
-	
+
 	else:
 		print('{} = {}'.format(prefix, repr(v)))
 		huff.append(Statement(None, None , None, 'leaf',v))
@@ -158,6 +187,7 @@ def print_dict(v, module, prefix='', level=0, huff = []):
 
 def generate_yang(test):
 	global count, level_memory
+	global mqtt_commands
 	'''
 	Generate a YANG-in-XML Tree
 	- print the YANG Tree as string with SerialIO
@@ -165,48 +195,48 @@ def generate_yang(test):
 	- attach the stringified CDATA to the new Element
 	- print the XML
 	'''
-	
+
 	#python-modeled.netconf/modeled/netconf/yang/__init__.py
 	module1 = Statement(None, None, None, 'module', 'mqtt-netconf-bridge')
-	
+
 	my_namespace = "http://ipv6lab.beuth-hochschule.de/mqtt-netconf-bridge"
 	my_prefix = "mnb"
-	
+
 	namespace = Statement(None, module1, None, 'namespace', my_namespace)
 	module1.substmts.append(namespace)
-	
+
 	prefix = Statement(None, module1, None, 'prefix', my_prefix)
 	module1.substmts.append(prefix)
-	
+
 	#http://stackoverflow.com/questions/10844064/items-in-json-object-are-out-of-order-using-json-dumps
 	data = json.loads(test, object_pairs_hook=OrderedDict)
 	count = 0
 	level_memory = {}
 	#print_dict(data, module1, count)
 	parse_dict(data, module1)
-	
+
 	#revision = str(datetime.now())
 	#revision = Statement(None, module, None, 'revision', revision)
 	#module.substmts.append(revision)
-	
+
 	#https://github.com/mbj4668/pyang/blob/master/pyang/plugin.py
 	#https://github.com/modeled/modeled.netconf/blob/master/modeled/netconf/yang/container.py
-	
-	
+
+
 	"""Serialize YANG container to the given output `format`.
 			"""
 	# output stream for pyang output plugin
 	stream = StringIO()
-	
+
 	# gets filled with all availabe pyang output format plugins
 	PYANG_PLUGINS = {}
-	
+
 	# register and initialise pyang plugin
 	pyang.plugin.init([])
 	for plugin in pyang.plugin.plugins:
 		plugin.add_output_format(PYANG_PLUGINS)
 	del plugin
-	
+
 	#for name in PYANG_PLUGINS:
 	#    print(name)
 	#...
@@ -224,36 +254,35 @@ def generate_yang(test):
 	#jsonxsl
 	#sample-xml-skeleton
 	plugin = PYANG_PLUGINS['yang']
-	
+
 	# register plugin options according to pyang script
 	optparser = OptionParser()
 	plugin.add_opts(optparser)
-	
+
 	# pyang plugins also need a pyang.Context
 	ctx = pyang.Context(DummyRepository())
-	
+
 	# which offers plugin-specific options (just take defaults)
 	ctx.opts = optparser.parse_args([])[0]
-	
+
 	# ready to serialize
 	plugin.emit(ctx, [module1], stream)
-	
+
 	# and return the resulting data
 	stream.seek(0)
 	yang = stream.getvalue()
-	
+
 	print '\nAusgabe: '
 	print(stream.read())
 	print ""
 	#return stream.read()
-	
-	#l = etree.tostring(root,  pretty_print=True)
-	root = etree.Element("data", xmlns="urn:ietf:params:xml:ns:yang:ietf-netconf-monitoring")
-	root.text = etree.CDATA(yang)
+
+	#root = etree.Element("data", xmlns="urn:ietf:params:xml:ns:yang:ietf-netconf-monitoring")
+	#root.text = etree.CDATA(yang)
 	#print  etree.tostring(root,  pretty_print=True)
 	#return  etree.tostring(root,  pretty_print=True)
-	return  root
-	
+	return  (yang, mqtt_commands)
+
 if __name__ == "__main__":
 	result = generate_yang(test)
 	print 'hhhuuu'

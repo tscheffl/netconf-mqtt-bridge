@@ -35,13 +35,30 @@ NC_DEBUG = False
 
 test ='''
 {
-    "rpc":
+    "dummy":
     {
         "description": "blabla_3",
         "output": "0"
     }		
 }'''
 
+#test =
+'''
+{
+  "rpc": {
+    "set_color_green": {
+      "description": "RPC call that sets the LIFX-Led Color to green",
+      "mqtt-command": "GREEN"
+    },
+    "switch_off": {
+      "description": "Switches the LIFX-Led off",
+      "mqtt-command": "OFF"
+    }
+  }
+}
+'''
+yangModel = ""
+command_dict = {}
 
 class NetconfMethods (netconf_server.NetconfMethods):
 
@@ -66,15 +83,17 @@ class NetconfMethods (netconf_server.NetconfMethods):
         return etree.Element("okidoki")
         
     def rpc_get_schema(self, unused_session, rpc, *unused_params):
-        y = generate_yang(test)
         root = etree.Element("data", xmlns="urn:ietf:params:xml:ns:yang:ietf-netconf-monitoring")
-        root.text = etree.CDATA(y)
-        return y
+        root.text = etree.CDATA(yangModel)
+        print (command_dict)
+        return root
         #return etree.Element("okiki")
         #return generate_yang()
 
 def setup_module (unused_module):
     global nc_server
+
+    yangModel,command_dict = generate_yang(test)
 
     logging.basicConfig(level=logging.DEBUG)
 
@@ -91,11 +110,10 @@ def setup_module (unused_module):
 
 
 ### Generate Netconf Methods
-def build_Netconf_Methods(message):
-    logger.info("build_Netconf_Methods called: " + message)
+def build_Netconf_Methods(method_Name, mqtt_Parameter):
+    logger.info("build_Netconf_Methods called: " + method_Name + mqtt_Parameter)
     ld = {}
     string = 'self.extra = "Hello"'
-    zick = message
     
     exec("""
 def rpc_%s(self, unused_session, rpc, *unused_params):
@@ -103,13 +121,13 @@ def rpc_%s(self, unused_session, rpc, *unused_params):
     print(self.extra)
     mqtt_client.publish("LIFX", "%s")
     return etree.Element("%s")
-    """ % (zick, string, zick, zick), None, ld)
+    """ % (method_Name, string, mqtt_Parameter, method_Name), None, ld)
     print('locals got: {}'.format(ld))
     for name, value in ld.items():
         setattr(NetconfMethods, name, value)
     
     #attach RPC to configuration
-    rpc = sub_ele(NetconfMethods.configuration,"""rpc_%s""" % (zick))
+    rpc = sub_ele(NetconfMethods.configuration,"""rpc_%s""" % (method_Name))
 
 
 ###  MQTT functions
@@ -119,14 +137,16 @@ def mqtt_connect(mqtt_client, userdata, flags, rc):
 
 def mqtt_message(mqtt_client, userdata, msg):
     global test
+    global yangModel, command_dict
     logger.info(msg.topic + " " + str(msg.payload))
     a = (msg.topic.split("/"))
     if a[0] == "yang" and a[1] == "config":
         print ("Split", a[0], a[1])
         test = msg.payload
-        print (test)
-        #build_Netconf_Methods(msg.payload)
-        #mqtt_client.publish("LIFX", "BELL")
+        yangModel,command_dict = generate_yang(test)
+        for i in command_dict:
+            print (i, command_dict[i])
+            build_Netconf_Methods(i, command_dict[i])
 
 mqtt_client = mqtt.Client()
 mqtt_client.on_connect = mqtt_connect
