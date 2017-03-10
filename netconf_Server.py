@@ -26,6 +26,7 @@ from ncclient.xml_ import new_ele, sub_ele
 #from netconf.error import RPCError
 import paho.mqtt.client as mqtt
 from parse_json import generate_yang
+from sets import Set
 
 logger = logging.getLogger(__name__)
 nc_server = None
@@ -59,6 +60,7 @@ test ='''
 '''
 yangModel = ""
 command_dict = {}
+uuid_set = Set([])
 
 class NetconfMethods (netconf_server.NetconfMethods):
 
@@ -77,7 +79,26 @@ class NetconfMethods (netconf_server.NetconfMethods):
     @classmethod    
     def rpc_get (cls, unused_session, rpc, *unused_params):
         #return etree.Element("ok")
-        return cls.nc_config
+        #return cls.nc_config
+        root = etree.Element('device')
+        
+        #for element in elementCollections:
+            
+        #listOfElements = ['1', '2', '3']
+        
+        #for ele in listOfElements: #set
+        for ele in uuid_set:
+            child1 = etree.SubElement(root, "device-id")
+            child2 = etree.SubElement(child1, "uuid")
+            child2.text = ele
+        
+        #newtree = etree.tostring(root, encoding='utf-8')
+        #newtree = newtree.decode("utf-8")
+        #print newtree
+        
+        return root
+            
+
         
     def rpc_hubble (self, unused_session, rpc, *unused_params):
         return etree.Element("okidoki")
@@ -91,9 +112,9 @@ class NetconfMethods (netconf_server.NetconfMethods):
         #return generate_yang()
 
 def setup_module (unused_module):
-    global nc_server
+    global nc_server, uuid_set
 
-    yangModel,command_dict = generate_yang(test)
+    yangModel, command_dict, uuid_set = generate_yang(test, uuid_set)
 
     logging.basicConfig(level=logging.DEBUG)
 
@@ -118,8 +139,12 @@ def build_Netconf_Methods(method_Name, mqtt_Parameter):
     exec("""
 def rpc_%s(self, unused_session, rpc, *unused_params):
     %s
-    print(self.extra)
-    mqtt_client.publish("LIFX", "%s")
+    #print (locals().keys())
+    for k in unused_params:
+        print ("Element: " + k.tag + "Text: " + k.text)
+    #print(self.extra)
+    topic = "LIFX/" + k.text
+    mqtt_client.publish(topic, "%s")
     return etree.Element("%s")
     """ % (method_Name, string, mqtt_Parameter, method_Name), None, ld)
     print('locals got: {}'.format(ld))
@@ -138,12 +163,13 @@ def mqtt_connect(mqtt_client, userdata, flags, rc):
 def mqtt_message(mqtt_client, userdata, msg):
     global test
     global yangModel, command_dict
+    global uuid_set
     logger.info(msg.topic + " " + str(msg.payload))
     a = (msg.topic.split("/"))
     if a[0] == "yang" and a[1] == "config":
         print ("Split", a[0], a[1])
         test = msg.payload
-        yangModel,command_dict = generate_yang(test)
+        yangModel,command_dict,uuid_set = generate_yang(test, uuid_set)
         for i in command_dict:
             print (i, command_dict[i])
             build_Netconf_Methods(i, command_dict[i])

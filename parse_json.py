@@ -15,6 +15,8 @@ import json
 from collections import OrderedDict
 from pprint import pprint
 
+from sets import Set
+
 class DummyRepository(pyang.Repository):
 	"""Dummy implementation of abstract :class:`pyang.Repository`
 	   for :class:`pyang.Context` instantiations
@@ -56,7 +58,7 @@ class DummyRepository(pyang.Repository):
 	"type":
 },   
 "status": {
-	"description":,
+	"description": "The current device state",
 	"element-name":"status",
 	"type": "string",
 	"default_value": "unkown"
@@ -72,10 +74,27 @@ class DummyRepository(pyang.Repository):
 
 test ='''
 {
+  "device":{
+    "description": "MQTT-Device identified by UUID",
+    "uuid":{
+      "type": "string",
+      "value": "F97DF79-8A12-4F4F-8F69-6B8F3C2E78DD"
+    },
+    "device-category":{
+      "description": "Identifies the device category, e.g. lamp",
+      "type": "string"
+    }
+  },
   "rpc": {
 	"set_color_green": {
 	  "description": "RPC call that sets the LIFX-Led Color to green",
-	  "mqtt-command": "GREEN"
+	  "mqtt-command": "GREEN",
+	  "input": { 
+	  	"uuid": {
+	  	  "description": "Sends request to device specified by uuid",
+	  	  "type": "string"
+	  	  }
+	  	}  
 	},
 	"switch_off": {
 	  "description": "Switches the LIFX-Led off",
@@ -90,15 +109,71 @@ test ='''
 count = 0
 level_memory = 0
 mqtt_commands = {} #dict of all rpc-names and the corresponding mqtt commands
+my_set = Set([])
 
 def parse_dict(v, module):
-	global mqtt_commands
+	global mqtt_commands, my_set
 	print "##############"
 	huff2 = []
 	count2 = 0
 	if isinstance(v, dict):
 		for k, v2 in v.items():
 			print "# K:", k
+			if k == 'device':
+				huff2.append(Statement(None, None , None, 'container', k))
+				module.substmts.append(huff2[count2])
+				count2 += 1
+				level = count2-1
+				for k2, v3 in v2.items():
+					print "#### K2:", k2, count2
+					if k2 == 'description':
+						huff2.append(Statement(None, None , None, k2,v3))
+						huff2[level].substmts.append(huff2[count2])
+						count2 += 1
+					elif k2 == 'uuid':
+						huff2.append(Statement(None, None , None, 'list','device-id'))
+						huff2[level].substmts.append(huff2[count2])
+						count2 += 1
+						level2 = count2-1
+						huff2.append(Statement(None, None , None, 'key',k2))
+						huff2[level2].substmts.append(huff2[count2])
+						count2 +=1
+						huff2.append(Statement(None, None , None, 'leaf',k2))
+						huff2[level2].substmts.append(huff2[count2])
+						count2 +=1
+						for k3,v4 in v3.items():
+							print "+++++++ K3:", k3,v4, count2
+							if k3 == 'value':
+								my_set.add(v4)
+								print my_set
+							else:	
+								huff2.append(Statement(None, None , None, k3, v4))
+								huff2[count2-1].substmts.append(huff2[count2])
+								count2 += 1
+					
+					else:
+						huff2.append(Statement(None, None , None, 'leaf',k2))
+						huff2[level].substmts.append(huff2[count2])
+						count2 += 1
+						level2 = count2-1					
+						
+						for k3,v4 in v3.items():
+							print "###### K3:", k3,v4, count2
+							if not isinstance(v4, dict):
+								huff2.append(Statement(None, None , None, k3,v4))
+								huff2[level2].substmts.append(huff2[count2])
+								count2 += 1
+							else:
+								#key, value = v4.popitem()
+								#print '>>>',key, value
+								huff2.append(Statement(None, None , None, k3, None))
+								huff2[count2-1].substmts.append(huff2[count2])
+								count2 += 1
+								for k4, v5 in v4.items():
+									print "########x K4:", k4,v5, count2
+									huff2.append(Statement(None, None , None, k4,v5))
+									huff2[count2-1].substmts.append(huff2[count2])
+									count2 += 1
 			if k == 'rpc':
 				for k2, v3 in v2.items():
 					print "#### K2:", k2, count2
@@ -107,25 +182,53 @@ def parse_dict(v, module):
 					count2 += 1
 					level = count2-1
 					for k3,v4 in v3.items():
-						print "###### K3:", k3,v4, count2
+						print "###### K3:", k3, count2
 						if not isinstance(v4, dict):
 							if k3 == 'mqtt-command':
 								mqtt_commands[k2] = v4 # add rpc-name : mqtt-command 
 							else:
+								print ("K3 - append", k3,v4)
 								huff2.append(Statement(None, None , None, k3,v4))
 								huff2[level].substmts.append(huff2[count2])
 								count2 += 1
 						else:
-							#key, value = v4.popitem()
-							#print '>>>',key, value
-							huff2.append(Statement(None, None , None, k3, None))
-							huff2[level].substmts.append(huff2[count2])
-							count2 += 1
-							for k4, v5 in v4.items():
-								print "########x K4:", k4,v5, count2
-								huff2.append(Statement(None, None , None, k4,v5))
-								huff2[count2-1].substmts.append(huff2[count2])
+							if k3 == 'input':
+								huff2.append(Statement(None, None, None, 'input', None))
+								huff2[level].substmts.append(huff2[count2])
 								count2 += 1
+								
+								huff2.append(Statement(None, None, None, 'leaf', next(iter(v4)) ))
+								huff2[count2-1].substmts.append(huff2[count2])
+								level2 = count2
+								count2 += 1
+								for k4, v5 in v4.items():
+									print "******** K4:", k4,v5, count2
+									if not isinstance(v4, dict):
+										print ("!!! Fehler: sollte nicht vorkommen")
+										huff2.append(Statement(None, None , None, 'ooh',k4))
+										huff2[count2-1].substmts.append(huff2[count2])
+										count2 += 1
+									
+									else:
+										for k5, v6 in v5.items():
+											print "######## K5:", k5,v6, count2
+											huff2.append(Statement(None, None , None, k5,v6))
+											huff2[level2].substmts.append(huff2[count2])
+											count2 += 1
+										
+							# else:		
+							# 	#key, value = v4.popitem()
+							# 	#print '>>>',key, value
+							# 	print ("K4 - append")
+							# 	huff2.append(Statement(None, None , None, k3, None))
+							# 	huff2[level].substmts.append(huff2[count2])
+							# 	count2 += 1
+							# 	for k4, v5 in v4.items():
+							# 		print "######## K4:", k4,v5, count2
+							# 		huff2.append(Statement(None, None , None, k4,v5))
+							# 		huff2[count2-1].substmts.append(huff2[count2])
+							# 		count2 += 1
+
 
 
 
@@ -185,9 +288,12 @@ def print_dict(v, module, prefix='', level=0, huff = []):
 		count += 1
 
 
-def generate_yang(test):
+def generate_yang(test, uuid_set):
 	global count, level_memory
 	global mqtt_commands
+	global my_set 
+	
+	my_set = uuid_set
 	'''
 	Generate a YANG-in-XML Tree
 	- print the YANG Tree as string with SerialIO
@@ -281,9 +387,13 @@ def generate_yang(test):
 	#root.text = etree.CDATA(yang)
 	#print  etree.tostring(root,  pretty_print=True)
 	#return  etree.tostring(root,  pretty_print=True)
-	return  (yang, mqtt_commands)
+	
+	#returns the constructed yang from json-config, a list of mqtt-commands and a set of uuids
+	return  (yang, mqtt_commands, my_set)
 
 if __name__ == "__main__":
-	result = generate_yang(test)
+	uuid_set = Set([])
+	uuid_set.add("12345")
+	result = generate_yang(test, uuid_set)
 	print 'hhhuuu'
 	print result
