@@ -80,7 +80,8 @@ class NetconfMethods (netconf_server.NetconfMethods):
     def rpc_get (cls, unused_session, rpc, *unused_params):
         #return etree.Element("ok")
         #return cls.nc_config
-        root = etree.Element('device')
+        root = etree.Element('data')
+        child1 = etree.SubElement(root, 'device', xmlns="http://ipv6lab.beuth-hochschule.de/mqtt-netconf-bridge")
         
         #for element in elementCollections:
             
@@ -88,9 +89,9 @@ class NetconfMethods (netconf_server.NetconfMethods):
         
         #for ele in listOfElements: #set
         for ele in uuid_set:
-            child1 = etree.SubElement(root, "device-id")
-            child2 = etree.SubElement(child1, "uuid")
-            child2.text = ele
+            child2 = etree.SubElement(child1, "device-id")
+            child3 = etree.SubElement(child2, "uuid")
+            child3.text = ele
         
         #newtree = etree.tostring(root, encoding='utf-8')
         #newtree = newtree.decode("utf-8")
