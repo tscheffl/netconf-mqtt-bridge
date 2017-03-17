@@ -81,8 +81,9 @@ test ='''
       "value": "F97DF79-8A12-4F4F-8F69-6B8F3C2E78DD"
     },
     "device-category":{
-      "description": "Identifies the device category, e.g. lamp",
-      "type": "string"
+      "description": "Identifies the device category",
+      "type": "string",
+      "value": "LED-LAMP"
     }
   },
   "rpc": {
@@ -110,9 +111,11 @@ count = 0
 level_memory = 0
 mqtt_commands = {} #dict of all rpc-names and the corresponding mqtt commands
 my_set = Set([])
+device_category = ""
+
 
 def parse_dict(v, module):
-	global mqtt_commands, my_set
+	global mqtt_commands, my_set, device_category
 	print "##############"
 	huff2 = []
 	count2 = 0
@@ -144,7 +147,7 @@ def parse_dict(v, module):
 						for k3,v4 in v3.items():
 							print "+++++++ K3:", k3,v4, count2
 							if k3 == 'value':
-								my_set.add(v4)
+								my_set.add(v4) #add this value to the set of UUIDs
 								print my_set
 							else:	
 								huff2.append(Statement(None, None , None, k3, v4))
@@ -159,7 +162,10 @@ def parse_dict(v, module):
 						
 						for k3,v4 in v3.items():
 							print "###### K3:", k3,v4, count2
-							if not isinstance(v4, dict):
+							if  k3 == 'value': #special rule for VALUE in 'device-category'
+								device_category = v4 #add this value to the set of UUIDs
+								print device_category
+							elif not isinstance(v4, dict):
 								huff2.append(Statement(None, None , None, k3,v4))
 								huff2[level2].substmts.append(huff2[count2])
 								count2 += 1
@@ -292,6 +298,7 @@ def generate_yang(test, uuid_set):
 	global count, level_memory
 	global mqtt_commands
 	global my_set 
+	global device_category
 	
 	my_set = uuid_set
 	'''
@@ -303,10 +310,10 @@ def generate_yang(test, uuid_set):
 	'''
 
 	#python-modeled.netconf/modeled/netconf/yang/__init__.py
-	module1 = Statement(None, None, None, 'module', 'mqtt-netconf-bridge')
+	module1 = Statement(None, None, None, 'module', 'mqtt-led')
 
-	my_namespace = "http://ipv6lab.beuth-hochschule.de/mqtt-netconf-bridge"
-	my_prefix = "mnb"
+	my_namespace = "http://ipv6lab.beuth-hochschule.de/led"
+	my_prefix = "led"
 
 	namespace = Statement(None, module1, None, 'namespace', my_namespace)
 	module1.substmts.append(namespace)
@@ -389,7 +396,7 @@ def generate_yang(test, uuid_set):
 	#return  etree.tostring(root,  pretty_print=True)
 	
 	#returns the constructed yang from json-config, a list of mqtt-commands and a set of uuids
-	return  (yang, mqtt_commands, my_set)
+	return  (yang, mqtt_commands, my_set, device_category)
 
 if __name__ == "__main__":
 	uuid_set = Set([])

@@ -61,6 +61,7 @@ test ='''
 yangModel = ""
 command_dict = {}
 uuid_set = Set([])
+device_category = ""
 
 class NetconfMethods (netconf_server.NetconfMethods):
 
@@ -81,7 +82,7 @@ class NetconfMethods (netconf_server.NetconfMethods):
         #return etree.Element("ok")
         #return cls.nc_config
         root = etree.Element('data')
-        child1 = etree.SubElement(root, 'device', xmlns="http://ipv6lab.beuth-hochschule.de/mqtt-netconf-bridge")
+        child1 = etree.SubElement(root, 'device', xmlns="http://ipv6lab.beuth-hochschule.de/led")
         
         #for element in elementCollections:
             
@@ -92,6 +93,9 @@ class NetconfMethods (netconf_server.NetconfMethods):
             child2 = etree.SubElement(child1, "device-id")
             child3 = etree.SubElement(child2, "uuid")
             child3.text = ele
+            
+        child4 = etree.SubElement(child1, "device-category")
+        child4.text = device_category
         
         #newtree = etree.tostring(root, encoding='utf-8')
         #newtree = newtree.decode("utf-8")
@@ -113,9 +117,9 @@ class NetconfMethods (netconf_server.NetconfMethods):
         #return generate_yang()
 
 def setup_module (unused_module):
-    global nc_server, uuid_set
+    global nc_server, uuid_set, device_category
 
-    yangModel, command_dict, uuid_set = generate_yang(test, uuid_set)
+    yangModel, command_dict, uuid_set, device_category = generate_yang(test, uuid_set)
 
     logging.basicConfig(level=logging.DEBUG)
 
@@ -165,12 +169,13 @@ def mqtt_message(mqtt_client, userdata, msg):
     global test
     global yangModel, command_dict
     global uuid_set
+    global device_category
     logger.info(msg.topic + " " + str(msg.payload))
     a = (msg.topic.split("/"))
     if a[0] == "yang" and a[1] == "config":
         print ("Split", a[0], a[1])
         test = msg.payload
-        yangModel,command_dict,uuid_set = generate_yang(test, uuid_set)
+        yangModel,command_dict,uuid_set,device_category = generate_yang(test, uuid_set)
         for i in command_dict:
             print (i, command_dict[i])
             build_Netconf_Methods(i, command_dict[i])
