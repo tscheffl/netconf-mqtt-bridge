@@ -15,7 +15,7 @@ import json
 from collections import OrderedDict
 from pprint import pprint
 
-from sets import Set
+#from sets import Set
 
 class DummyRepository(pyang.Repository):
 	"""Dummy implementation of abstract :class:`pyang.Repository`
@@ -110,25 +110,26 @@ test ='''
 count = 0
 level_memory = 0
 mqtt_commands = {} #dict of all rpc-names and the corresponding mqtt commands
-my_set = Set([])
+#my_set = Set([])
+my_set = set()
 device_category = ""
 
 
 def parse_dict(v, module):
 	global mqtt_commands, my_set, device_category
-	print "##############"
+	print ("##############")
 	huff2 = []
 	count2 = 0
 	if isinstance(v, dict):
 		for k, v2 in v.items():
-			print "# K:", k
+			print ("# K:", k)
 			if k == 'device':
 				huff2.append(Statement(None, None , None, 'container', k))
 				module.substmts.append(huff2[count2])
 				count2 += 1
 				level = count2-1
 				for k2, v3 in v2.items():
-					print "#### K2:", k2, count2
+					print ("#### K2:", k2, count2)
 					if k2 == 'description':
 						huff2.append(Statement(None, None , None, k2,v3))
 						huff2[level].substmts.append(huff2[count2])
@@ -145,10 +146,10 @@ def parse_dict(v, module):
 						huff2[level2].substmts.append(huff2[count2])
 						count2 +=1
 						for k3,v4 in v3.items():
-							print "+++++++ K3:", k3,v4, count2
+							print ("+++++++ K3:", k3,v4, count2)
 							if k3 == 'value':
 								my_set.add(v4) #add this value to the set of UUIDs
-								print my_set
+								print (my_set)
 							else:	
 								huff2.append(Statement(None, None , None, k3, v4))
 								huff2[count2-1].substmts.append(huff2[count2])
@@ -161,10 +162,10 @@ def parse_dict(v, module):
 						level2 = count2-1					
 						
 						for k3,v4 in v3.items():
-							print "###### K3:", k3,v4, count2
+							print ("###### K3:", k3,v4, count2)
 							if  k3 == 'value': #special rule for VALUE in 'device-category'
 								device_category = v4 #add this value to the set of UUIDs
-								print device_category
+								print (device_category)
 							elif not isinstance(v4, dict):
 								huff2.append(Statement(None, None , None, k3,v4))
 								huff2[level2].substmts.append(huff2[count2])
@@ -176,19 +177,19 @@ def parse_dict(v, module):
 								huff2[count2-1].substmts.append(huff2[count2])
 								count2 += 1
 								for k4, v5 in v4.items():
-									print "########x K4:", k4,v5, count2
+									print ("########x K4:", k4,v5, count2)
 									huff2.append(Statement(None, None , None, k4,v5))
 									huff2[count2-1].substmts.append(huff2[count2])
 									count2 += 1
 			if k == 'rpc':
 				for k2, v3 in v2.items():
-					print "#### K2:", k2, count2
+					print ("#### K2:", k2, count2)
 					huff2.append(Statement(None, None , None, 'rpc',k2))
 					module.substmts.append(huff2[count2])
 					count2 += 1
 					level = count2-1
 					for k3,v4 in v3.items():
-						print "###### K3:", k3, count2
+						print ("###### K3:", k3, count2)
 						if not isinstance(v4, dict):
 							if k3 == 'mqtt-command':
 								mqtt_commands[k2] = v4 # add rpc-name : mqtt-command 
@@ -208,7 +209,7 @@ def parse_dict(v, module):
 								level2 = count2
 								count2 += 1
 								for k4, v5 in v4.items():
-									print "******** K4:", k4,v5, count2
+									print ("******** K4:", k4,v5, count2)
 									if not isinstance(v4, dict):
 										print ("!!! Fehler: sollte nicht vorkommen")
 										huff2.append(Statement(None, None , None, 'ooh',k4))
@@ -217,7 +218,7 @@ def parse_dict(v, module):
 									
 									else:
 										for k5, v6 in v5.items():
-											print "######## K5:", k5,v6, count2
+											print ("######## K5:", k5,v6, count2)
 											huff2.append(Statement(None, None , None, k5,v6))
 											huff2[level2].substmts.append(huff2[count2])
 											count2 += 1
@@ -248,8 +249,8 @@ def print_dict(v, module, prefix='', level=0, huff = []):
 	if isinstance(v, dict):
 		for k, v2 in v.items():
 			p2 = "{}['{}']".format(prefix, k)
-			print "\nDict: --- ", level, count
-			print k, v2 
+			print ("\nDict: --- ", level, count)
+			print (k, v2)
 			huff.append(Statement(None, None , None, 'container',k))
 			if count is 0:
 				module.substmts.append(huff[level])
@@ -263,7 +264,7 @@ def print_dict(v, module, prefix='', level=0, huff = []):
 				module.substmts.append(huff[count])
 
 			else:
-				print 'D:', level, repr(huff[1])
+				print ('D:', level, repr(huff[1]))
 				huff[level_memory[level-1]].substmts.append(huff[count])
 				#huff[level-1].substmts.append(huff[count])
 				level_memory[level] = count
@@ -276,8 +277,8 @@ def print_dict(v, module, prefix='', level=0, huff = []):
 	elif isinstance(v, list):
 		for i, v2 in enumerate(v):
 			p2 = "{}[{}]".format(prefix, i)
-			print "List: ---", level
-			print i, v2
+			print ("List: ---", level)
+			print (i, v2)
 #
 			huff.append(Statement(None, None , None, 'list',i))
 #			huff[level-1].substmts.append(huff[level])
@@ -385,9 +386,9 @@ def generate_yang(test, uuid_set):
 	stream.seek(0)
 	yang = stream.getvalue()
 
-	print '\nAusgabe: '
+	print ('\nAusgabe: ')
 	print(stream.read())
-	print ""
+	print ("")
 	#return stream.read()
 
 	#root = etree.Element("data", xmlns="urn:ietf:params:xml:ns:yang:ietf-netconf-monitoring")
@@ -399,8 +400,8 @@ def generate_yang(test, uuid_set):
 	return  (yang, mqtt_commands, my_set, device_category)
 
 if __name__ == "__main__":
-	uuid_set = Set([])
+	uuid_set = set()
 	uuid_set.add("12345")
 	result = generate_yang(test, uuid_set)
-	print 'hhhuuu'
-	print result
+	print ('hhhuuu')
+	print (result)
