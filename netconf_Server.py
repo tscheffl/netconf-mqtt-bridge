@@ -26,7 +26,7 @@ from ncclient.xml_ import new_ele, sub_ele
 #from netconf.error import RPCError
 import paho.mqtt.client as mqtt
 from parse_json import generate_yang
-from sets import Set
+#from sets import Set
 
 logger = logging.getLogger(__name__)
 nc_server = None
@@ -60,7 +60,7 @@ test ='''
 '''
 yangModel = ""
 command_dict = {}
-uuid_set = Set([])
+uuid_set = set()
 device_category = ""
 
 class NetconfMethods (netconf_server.NetconfMethods):
